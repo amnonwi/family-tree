@@ -3,10 +3,79 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta charset="utf-8" />
-  <title>Family Tree</title>
+  <title>Family Tree (custom)</title>
   <style>
     html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
-    #tree { width: 100%; height: 100vh; }
+    #tree { width: 100%; height: 100vh; background: #fff; }
+
+    /* SVG fills the viewport */
+    #tree svg { width: 100%; height: 100%; display: block; }
+
+    /* Graph nodes */
+    .node-card{
+      width: 240px;
+      box-sizing: border-box;
+      padding: 12px;
+      border-radius: 10px;
+      background: #fff;
+      text-align: center;
+      direction: rtl;
+      color: #111;
+      overflow: hidden;
+    }
+    .node-card .name1{
+      font-size: 16px;
+      font-weight: 700;
+      color: #111;
+      line-height: 1.15;
+    }
+    .node-card .name2{
+      font-size: 13px;
+      color: #111;
+      margin-top: 2px;
+      line-height: 1.15;
+    }
+    .node-card .comment{
+      font-size: 12px;
+      margin-top: 6px;
+      color: #111;
+      white-space: pre-wrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .node-card .meta{
+      font-size: 12px;
+      margin-top: 6px;
+      color: #111;
+      line-height: 1.2;
+    }
+    .node-card .meta.muted{
+      margin-top: 2px;
+      color: #444;
+    }
+
+    /* dagre-d3 shapes */
+    g.node rect{
+      fill: transparent; /* we draw card via foreignObject */
+      stroke: transparent;
+    }
+    g.node.is-selected foreignObject .node-card{
+      outline: 4px solid rgba(30, 136, 229, 0.25);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+    }
+    g.edgePath path{
+      stroke: #9ca3af;
+      stroke-width: 2px;
+      fill: none;
+    }
+    g.edgePath.spouse path{
+      stroke: #6b7280;
+      stroke-width: 2px;
+      stroke-dasharray: 4 3;
+      opacity: 0.85;
+    }
 
     /* Search UI */
     #searchBar{
@@ -132,6 +201,23 @@
       white-space: nowrap;
       order: 2;
     }
+
+    #toggles{
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      order: 3;
+      font-size: 12px;
+      color: #374151;
+      white-space: nowrap;
+    }
+    #toggles label{
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
   </style>
 </head>
 
@@ -141,6 +227,9 @@
   <div id="searchBar">
     <input id="searchInput" type="search" placeholder="חיפוש לפי שם..." autocomplete="off" />
     <span id="nodeCount"></span>
+    <div id="toggles">
+      <label><input id="toggleSpouses" type="checkbox" checked /> הצג בני זוג</label>
+    </div>
     <button id="searchBtn">חפש</button>
     <button id="clearBtn" title="נקה">✕</button>
   </div>
@@ -148,16 +237,15 @@
   <div id="searchResults" hidden></div>
   <div id="tree"></div>
 
-  <script src="https://cdn.balkan.app/familytree2.js"></script>
+  <!-- Alternative to balkan.app/familytree2.js:
+       D3 + dagre-d3 gives a fully-customizable graph renderer with HTML node templates -->
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
   <script src="members.js"></script>
 
   <script>
     window.addEventListener("DOMContentLoaded", () => {
-      // ----------------- Guards -----------------
-      if (typeof FamilyTree2 === "undefined") {
-        console.error("FamilyTree2 not loaded. Check network / script URL.");
-        return;
-      }
       if (!window.members || !Array.isArray(window.members) || window.members.length === 0) {
         console.error("members.js did not define window.members (or it's empty).");
         return;
@@ -175,13 +263,20 @@
       // parentId -> [childId...]
       const childrenOf = new Map();
       for (const m of members) {
-        if (m.fatherId) {
+        if (m.fatherId && m.fatherId !== m.id) {
           if (!childrenOf.has(m.fatherId)) childrenOf.set(m.fatherId, []);
           childrenOf.get(m.fatherId).push(m.id);
         }
-        if (m.motherId) {
+        if (m.motherId && m.motherId !== m.id) {
           if (!childrenOf.has(m.motherId)) childrenOf.set(m.motherId, []);
           childrenOf.get(m.motherId).push(m.id);
+        }
+        if (Array.isArray(m.childIds)) {
+          for (const cid of m.childIds) {
+            if (!cid || cid === m.id) continue;
+            if (!childrenOf.has(m.id)) childrenOf.set(m.id, []);
+            childrenOf.get(m.id).push(cid);
+          }
         }
       }
 
@@ -189,31 +284,8 @@
         const m = byId.get(id);
         if (!m) return [];
         const out = [];
-        if (m.fatherId) out.push(m.fatherId);
-        if (m.motherId) out.push(m.motherId);
-        return out;
-      }
-
-      // Direct connections (used only for expanding around Search target)
-      function getDirectConnectedIds(id) {
-        const m = byId.get(id);
-        const out = new Set([id]);
-        if (!m) return out;
-
-        if (m.fatherId) out.add(m.fatherId);
-        if (m.motherId) out.add(m.motherId);
-
-        if (Array.isArray(m.spouseIds)) {
-          for (const sid of m.spouseIds) out.add(sid);
-        }
-
-        (childrenOf.get(id) || []).forEach(cid => out.add(cid));
-
-        const sibs = new Set();
-        if (m.fatherId) (childrenOf.get(m.fatherId) || []).forEach(cid => sibs.add(cid));
-        if (m.motherId) (childrenOf.get(m.motherId) || []).forEach(cid => sibs.add(cid));
-        sibs.forEach(cid => out.add(cid));
-
+        if (m.fatherId && m.fatherId !== id) out.push(m.fatherId);
+        if (m.motherId && m.motherId !== id) out.push(m.motherId);
         return out;
       }
 
@@ -261,82 +333,18 @@
         if (!m.borderColor) m.borderColor = genPalette[idx];
       }
 
-      // ----------------- Init tree -----------------
-      const ft = new FamilyTree2(document.getElementById("tree"));
+      // ----------------- Graph renderer (dagre-d3) -----------------
+      const treeEl = document.getElementById("tree");
+      treeEl.innerHTML = "";
 
-      // Custom node HTML (RTL-friendly) - NEW FORMAT
-      ft.template.html = function (node) {
-        const m = node.familyMember || {};
+      const svg = d3.select(treeEl).append("svg");
+      const inner = svg.append("g");
 
-        const heb = String(m.hebrewName || "").trim();
-        const eng = String(m.englishName || "").trim();
-        const comment = String(m.comment || "").trim();
+      const zoom = d3.zoom().scaleExtent([0.08, 2.5]).on("zoom", (event) => {
+        inner.attr("transform", event.transform);
+      });
+      svg.call(zoom);
 
-        const birthG = String(m.birthDate || "").trim();
-        const birthH = String(m.hebrewBirthDate || "").trim();
-        const deathG = String(m.deathDate || "").trim();
-        const deathH = String(m.deathHebrewDate || "").trim();
-
-        const bg = m.color || "#ffffff";
-        const border = m.borderColor || "#d1d5db";
-
-        // Line 1: Hebrew if exists else English
-        const line1 = heb || eng || "";
-        // Line 2: English only if Hebrew exists
-        const line2 = (heb && eng) ? eng : "";
-
-        const nameHtml = `
-          ${line1 ? `<div style="font-size:16px; font-weight:700; color:#111;"><bdi>${escapeHtml_(line1)}</bdi></div>` : ""}
-          ${line2 ? `<div style="font-size:13px; margin-top:2px; color:#111;"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
-        `;
-
-        const commentHtml = comment
-          ? `<div style="font-size:12px; margin-top:6px; color:#111; white-space:pre-wrap;"><bdi>${escapeHtml_(comment)}</bdi></div>`
-          : "";
-
-        const birthHtml = (birthG || birthH)
-          ? `<div style="font-size:12px; margin-top:6px; color:#111;">
-               <bdi>לידה</bdi>
-               ${birthG ? `<bdi>${escapeHtml_(birthG)}</bdi>` : ""}
-               ${birthG && birthH ? " " : ""}
-               ${birthH ? `(<bdi>${escapeHtml_(birthH)}</bdi>)` : ""}
-             </div>`
-          : "";
-
-        const deathHtml = (deathG || deathH)
-          ? `<div style="font-size:12px; margin-top:2px; color:#444;">
-               <bdi>פטירה</bdi>
-               ${deathG ? `<bdi>${escapeHtml_(deathG)}</bdi>` : ""}
-               ${deathG && deathH ? " " : ""}
-               ${deathH ? `(<bdi>${escapeHtml_(deathH)}</bdi>)` : ""}
-             </div>`
-          : "";
-
-        return `
-          <div style="
-            padding:14px;
-            direction: rtl;
-            text-align: center;
-            background:${bg};
-            border:7px solid ${border};
-            border-radius:10px;
-            box-sizing:border-box;
-            color:#111;
-          ">
-            ${nameHtml}
-            ${commentHtml}
-            ${birthHtml}
-            ${deathHtml}
-          </div>
-        `;
-      };
-
-      // Start with ONLY the root visible (collapse everything else)
-      ft.collapsedIds = members
-        .map(m => m.id)
-        .filter(id => id !== root.id);
-
-      // ----------------- Search -----------------
       function normalizeName(s) {
         return String(s || "")
           .normalize("NFKD")
@@ -346,6 +354,165 @@
           .toLowerCase();
       }
 
+      function nodeHtml(m) {
+        const heb = String(m.hebrewName || "").trim();
+        const eng = String(m.englishName || "").trim();
+        const comment = String(m.comment || "").trim();
+
+        const birthG = String(m.birthDate || "").trim();
+        const birthH = String(m.hebrewBirthDate || "").trim();
+        const deathG = String(m.deathDate || "").trim();
+        const deathH = String(m.deathHebrewDate || "").trim();
+
+        const line1 = heb || eng || String(m.id);
+        const line2 = (heb && eng) ? eng : "";
+
+        const border = m.borderColor || "#d1d5db";
+        const bg = m.color || "#fff";
+
+        const birth = (birthG || birthH)
+          ? `<div class="meta"><bdi>לידה</bdi> ${birthG ? `<bdi>${escapeHtml_(birthG)}</bdi>` : ""}${birthG && birthH ? " " : ""}${birthH ? `(<bdi>${escapeHtml_(birthH)}</bdi>)` : ""}</div>`
+          : "";
+        const death = (deathG || deathH)
+          ? `<div class="meta muted"><bdi>פטירה</bdi> ${deathG ? `<bdi>${escapeHtml_(deathG)}</bdi>` : ""}${deathG && deathH ? " " : ""}${deathH ? `(<bdi>${escapeHtml_(deathH)}</bdi>)` : ""}</div>`
+          : "";
+
+        return `
+          <div class="node-card" style="background:${bg}; border:7px solid ${border};">
+            <div class="name1"><bdi>${escapeHtml_(line1)}</bdi></div>
+            ${line2 ? `<div class="name2"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
+            ${comment ? `<div class="comment"><bdi>${escapeHtml_(comment)}</bdi></div>` : ""}
+            ${birth}
+            ${death}
+          </div>
+        `;
+      }
+
+      function buildGraph({ showSpouses }) {
+        const g = new dagreD3.graphlib.Graph({ multigraph: true })
+          .setGraph({
+            rankdir: "TB",
+            nodesep: 28,
+            ranksep: 90,
+            marginx: 20,
+            marginy: 20
+          })
+          .setDefaultEdgeLabel(() => ({}));
+
+        // Nodes
+        for (const m of members) {
+          g.setNode(String(m.id), {
+            labelType: "html",
+            label: nodeHtml(m),
+            width: 240,
+            height: 160,
+            rx: 10,
+            ry: 10
+          });
+        }
+
+        const edgeKeys = new Set();
+        const addEdge = (from, to, attrs) => {
+          if (!from || !to) return;
+          if (from === to) return;
+          const k = `${from}->${to}|${attrs && attrs._k ? attrs._k : ""}`;
+          if (edgeKeys.has(k)) return;
+          edgeKeys.add(k);
+          g.setEdge(String(from), String(to), attrs || {});
+        };
+
+        // Parent -> child edges (rank constraints)
+        for (const m of members) {
+          if (m.fatherId && m.fatherId !== m.id) addEdge(m.fatherId, m.id, { arrowhead: "none", lineInterpolate: "basis", _k: "p" });
+          if (m.motherId && m.motherId !== m.id) addEdge(m.motherId, m.id, { arrowhead: "none", lineInterpolate: "basis", _k: "p" });
+        }
+
+        // Spouse edges (do not affect ranks)
+        if (showSpouses) {
+          const spousePairs = new Set();
+          for (const m of members) {
+            if (!Array.isArray(m.spouseIds)) continue;
+            for (const sid of m.spouseIds) {
+              if (!sid || sid === m.id) continue;
+              const a = String(Math.min(m.id, sid));
+              const b = String(Math.max(m.id, sid));
+              const key = `${a}-${b}`;
+              if (spousePairs.has(key)) continue;
+              spousePairs.add(key);
+              g.setEdge(String(a), String(b), {
+                arrowhead: "none",
+                curve: d3.curveBasis,
+                class: "spouse",
+                constraint: false,
+                _k: "s"
+              }, `spouse:${key}`);
+            }
+          }
+        }
+
+        return g;
+      }
+
+      function renderGraph(selectedId) {
+        const showSpouses = !!document.getElementById("toggleSpouses")?.checked;
+        const g = buildGraph({ showSpouses });
+
+        inner.selectAll("*").remove();
+        const renderer = new dagreD3.render();
+        renderer(inner, g);
+
+        // Tag spouse edges for CSS styling
+        inner.selectAll("g.edgePath").each(function(d) {
+          const edge = g.edge(d);
+          if (edge && edge.class === "spouse") {
+            d3.select(this).classed("spouse", true);
+          }
+        });
+
+        // Fit to screen initially (or preserve selection focus)
+        const { width: vw, height: vh } = treeEl.getBoundingClientRect();
+        const graphW = g.graph().width || 1;
+        const graphH = g.graph().height || 1;
+        const scale = Math.min(1, 0.92 * Math.min(vw / graphW, vh / graphH));
+        const tx = (vw - graphW * scale) / 2;
+        const ty = (vh - graphH * scale) / 2;
+        svg.call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+
+        if (selectedId != null) {
+          selectAndCenter(g, selectedId, { animate: false });
+        }
+
+        // Click-to-select
+        inner.selectAll("g.node").on("click", function(e, id) {
+          e.stopPropagation();
+          selectAndCenter(g, id, { animate: true });
+        });
+
+        // Background click clears selection
+        svg.on("click", () => {
+          inner.selectAll("g.node").classed("is-selected", false);
+        });
+
+        return g;
+      }
+
+      function selectAndCenter(g, id, { animate }) {
+        const sid = String(id);
+        inner.selectAll("g.node").classed("is-selected", false);
+        inner.select(`g.node[id='${cssEscape_(sid)}']`).classed("is-selected", true);
+
+        const n = g.node(sid);
+        if (!n) return;
+        const { width: vw, height: vh } = treeEl.getBoundingClientRect();
+        const targetScale = Math.min(1.2, Math.max(0.22, d3.zoomTransform(svg.node()).k));
+        const t = d3.zoomIdentity
+          .translate(vw / 2 - n.x * targetScale, vh / 2 - n.y * targetScale)
+          .scale(targetScale);
+        const sel = animate ? svg.transition().duration(550) : svg;
+        sel.call(zoom.transform, t);
+      }
+
+      // ----------------- Search -----------------
       // Search by Hebrew + English, show both in results when available
       const searchable = members.map(m => {
         const heb = String(m.hebrewName || "").trim();
@@ -366,68 +533,12 @@
         return searchable.filter(x => x.searchN.includes(nq)).slice(0, 30);
       }
 
-      // Graph adjacency (for expanding path to hidden nodes)
-      const neighbors = new Map();
-      function addEdge(a, b) {
-        if (!a || !b) return;
-        if (!neighbors.has(a)) neighbors.set(a, new Set());
-        if (!neighbors.has(b)) neighbors.set(b, new Set());
-        neighbors.get(a).add(b);
-        neighbors.get(b).add(a);
-      }
-
-      for (const m of members) {
-        if (m.fatherId) addEdge(m.id, m.fatherId);
-        if (m.motherId) addEdge(m.id, m.motherId);
-        if (Array.isArray(m.spouseIds)) for (const sid of m.spouseIds) addEdge(m.id, sid);
-        (childrenOf.get(m.id) || []).forEach(cid => addEdge(m.id, cid));
-      }
-
-      function bfsPath(startId, targetId) {
-        if (startId === targetId) return [startId];
-        const prev = new Map();
-        const q = [startId];
-        prev.set(startId, null);
-
-        while (q.length) {
-          const cur = q.shift();
-          const ns = neighbors.get(cur);
-          if (!ns) continue;
-
-          for (const nxt of ns) {
-            if (prev.has(nxt)) continue;
-            prev.set(nxt, cur);
-
-            if (nxt === targetId) {
-              const path = [];
-              let x = nxt;
-              while (x != null) { path.push(x); x = prev.get(x); }
-              path.reverse();
-              return path;
-            }
-            q.push(nxt);
-          }
-        }
-        return null;
-      }
-
-      function expandPathTo(targetId) {
-        const startId = root.id;
-        const path = bfsPath(startId, targetId) || [targetId];
-
-        const collapsed = new Set(ft.collapsedIds || []);
-        for (const id of path) collapsed.delete(id);
-        getDirectConnectedIds(targetId).forEach(id => collapsed.delete(id));
-
-        ft.collapsedIds = Array.from(collapsed);
-        ft.draw(targetId);
-      }
-
       // ----------------- Wire Search UI -----------------
       const elInput = document.getElementById("searchInput");
       const elBtn = document.getElementById("searchBtn");
       const elClear = document.getElementById("clearBtn");
       const elResults = document.getElementById("searchResults");
+      const elToggleSpouses = document.getElementById("toggleSpouses");
 
       function hideResults() {
         elResults.hidden = true;
@@ -480,15 +591,30 @@
         const id = Number(item.getAttribute("data-id"));
         if (!id) return;
         hideResults();
-        expandPathTo(id);
+        // Re-render (if needed due to toggles) and center
+        const g = renderGraph(id);
+        selectAndCenter(g, id, { animate: true });
       });
 
       document.addEventListener("click", (e) => {
         if (!e.target.closest("#searchBar") && !e.target.closest("#searchResults")) hideResults();
       });
 
-      // ----------------- Initial draw -----------------
-      ft.addFamilyMembers(members).draw(root.id);
+      // Re-render when toggles change
+      if (elToggleSpouses) {
+        elToggleSpouses.addEventListener("change", () => {
+          renderGraph(root.id);
+        });
+      }
+
+      // ----------------- Initial render -----------------
+      renderGraph(root.id);
+      // Center root after first render
+      setTimeout(() => {
+        // best-effort: rebuild + center without animation
+        const g = renderGraph(root.id);
+        selectAndCenter(g, root.id, { animate: false });
+      }, 0);
     });
 
     function escapeHtml_(s) {
@@ -498,6 +624,11 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+    }
+
+    function cssEscape_(s) {
+      // Minimal escape for attribute selector usage in query strings
+      return String(s || "").replaceAll("\\", "\\\\").replaceAll("'", "\\'");
     }
   </script>
 
