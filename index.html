@@ -1,343 +1,218 @@
 <!doctype html>
 <html lang="he" dir="rtl">
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta charset="utf-8" />
-  <title>Family Tree</title>
-  <style>
-    html, body { height: 100%; margin: 0; font-family: Arial, sans-serif; }
-    #tree { width: 100%; height: 100vh; }
-
-    /* Search UI */
-    #searchBar{
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      z-index: 9999;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      background: rgba(255,255,255,0.95);
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-      flex-wrap: wrap;
-      max-width: calc(100vw - 24px);
-    }
-    #searchInput{
-      width: 240px;
-      padding: 8px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      outline: none;
-    }
-    #searchBtn, #clearBtn{
-      padding: 8px 12px;
-      border-radius: 10px;
-      border: 1px solid #d1d5db;
-      background: #fff;
-      cursor: pointer;
-    }
-    #clearBtn{ padding: 8px 10px; }
-
-    #searchResults{
-      position: fixed;
-      top: 62px;
-      right: 12px;
-      z-index: 9999;
-      width: 360px;
-      max-height: 340px;
-      overflow: auto;
-      background: rgba(255,255,255,0.98);
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-    }
-    .sr-item{
-      padding: 10px 12px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-      direction: rtl;
-      text-align: right;
-    }
-    .sr-item:last-child{ border-bottom: none; }
-    .sr-item:hover{ background: #f3f4f6; }
-
-    /* Fixed note (bottom-left) */
-    #footerNote {
-      position: fixed;
-      bottom: 12px;
-      left: 12px;
-      z-index: 9999;
-      background: rgba(255,255,255,0.9);
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      padding: 8px 12px;
-      font-size: 12px;
-      color: #111;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-      direction: rtl;
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    @media (max-width: 600px) {
-      #searchBar{
-        top: 8px;
-        right: 8px;
-        left: 8px;
-        width: auto;
-        gap: 6px;
-        padding: 8px;
-        border-radius: 12px;
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Family Tree Search</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: rgba(255, 255, 255, 0.92);
+        --border: #d1d5db;
+        --text: #111827;
+        --muted: #6b7280;
+        --shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
       }
 
-      #searchInput{
-        width: 100%;
-        flex: 1 1 100%;
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background: radial-gradient(1200px 700px at 80% 0%, #142449 0%, var(--bg) 55%);
+      }
+
+      .topbar {
+        position: fixed;
+        inset: 12px 12px auto 12px;
+        z-index: 10;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .topbar input[type="search"] {
+        flex: 1 1 320px;
+        min-width: 220px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        outline: none;
         font-size: 16px;
       }
 
-      #searchBtn, #clearBtn{
-        flex: 1 1 auto;
+      .pill {
+        font-size: 12px;
+        color: #374151;
+        background: #f3f4f6;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 10px;
+        white-space: nowrap;
+      }
+
+      .btn {
         padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: white;
+        cursor: pointer;
         font-size: 14px;
       }
 
-      #searchResults{
-        top: 112px;
-        right: 8px;
-        left: 8px;
-        width: auto;
-        max-height: 45vh;
+      .results {
+        position: fixed;
+        top: 72px;
+        right: 12px;
+        left: 12px;
+        z-index: 10;
+        max-width: 720px;
+        margin-left: auto;
+        margin-right: 0;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
       }
 
-      #footerNote{
-        left: 8px;
-        right: 8px;
-        bottom: 8px;
+      .results[hidden] {
+        display: none;
+      }
+
+      .results .item {
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(209, 213, 219, 0.6);
+      }
+
+      .results .item:last-child {
+        border-bottom: none;
+      }
+
+      .results .item:hover,
+      .results .item[aria-selected="true"] {
+        background: #eef2ff;
+      }
+
+      .results .primary {
+        color: var(--text);
+        font-weight: 650;
+      }
+
+      .results .secondary {
+        margin-top: 2px;
         font-size: 12px;
-        white-space: normal;
-      }
-    }
-
-    #nodeCount{
-      font-size: 12px;
-      color: #374151;
-      background: #F3F4F6;
-      border: 1px solid #D1D5DB;
-      border-radius: 999px;
-      padding: 4px 8px;
-      white-space: nowrap;
-      order: 2;
-    }
-  </style>
-</head>
-
-<body>
-
-  <!-- Search UI -->
-  <div id="searchBar">
-    <input id="searchInput" type="search" placeholder="חיפוש לפי שם..." autocomplete="off" />
-    <span id="nodeCount"></span>
-    <button id="searchBtn">חפש</button>
-    <button id="clearBtn" title="נקה">✕</button>
-  </div>
-
-  <div id="searchResults" hidden></div>
-  <div id="tree"></div>
-
-  <script src="https://cdn.balkan.app/familytree2.js"></script>
-  <script src="members.js"></script>
-
-  <script>
-    window.addEventListener("DOMContentLoaded", () => {
-      // ----------------- Guards -----------------
-      if (typeof FamilyTree2 === "undefined") {
-        console.error("FamilyTree2 not loaded. Check network / script URL.");
-        return;
-      }
-      if (!window.members || !Array.isArray(window.members) || window.members.length === 0) {
-        console.error("members.js did not define window.members (or it's empty).");
-        return;
+        color: var(--muted);
       }
 
-      const members = window.members;
-      document.getElementById("nodeCount").textContent = `סה״כ ${members.length}`;
+      .stage {
+        height: 100%;
+        padding-top: 92px;
+        box-sizing: border-box;
+      }
 
-      // ---------- Root ----------
-      const ROOT_ID = 1000;
+      #empty {
+        height: calc(100vh - 92px);
+        display: grid;
+        place-items: center;
+        color: white;
+        text-align: center;
+        padding: 24px;
+      }
 
-      // ----------------- Indexes -----------------
-      const byId = new Map(members.map(m => [m.id, m]));
+      #empty .card {
+        max-width: 720px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 18px;
+        padding: 22px 18px;
+        backdrop-filter: blur(10px);
+      }
 
-      // parentId -> [childId...]
-      const childrenOf = new Map();
-      for (const m of members) {
-        if (m.fatherId) {
-          if (!childrenOf.has(m.fatherId)) childrenOf.set(m.fatherId, []);
-          childrenOf.get(m.fatherId).push(m.id);
-        }
-        if (m.motherId) {
-          if (!childrenOf.has(m.motherId)) childrenOf.set(m.motherId, []);
-          childrenOf.get(m.motherId).push(m.id);
+      #empty h2 {
+        margin: 0 0 10px 0;
+        font-size: 20px;
+        font-weight: 750;
+      }
+
+      #empty p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.85);
+        line-height: 1.45;
+      }
+
+      #treeWrap {
+        height: calc(100vh - 92px);
+        display: none;
+        background: #ffffff;
+      }
+
+      #tree {
+        width: 100%;
+        height: 100%;
+      }
+
+      @media (min-width: 760px) {
+        .results {
+          left: auto;
+          width: 560px;
         }
       }
+    </style>
+  </head>
+  <body>
+    <div class="topbar" role="search">
+      <input
+        id="q"
+        type="search"
+        placeholder="חפש/י לפי שם בעברית או באנגלית…"
+        autocomplete="off"
+        aria-label="Search by hebrewName or englishName"
+      />
+      <span id="count" class="pill" title="Number of members"></span>
+      <button id="clear" class="btn" type="button" title="Clear">נקה</button>
+    </div>
 
-      function parentsOf(id) {
-        const m = byId.get(id);
-        if (!m) return [];
-        const out = [];
-        if (m.fatherId) out.push(m.fatherId);
-        if (m.motherId) out.push(m.motherId);
-        return out;
+    <div id="results" class="results" hidden aria-label="Search results"></div>
+
+    <div class="stage">
+      <div id="empty">
+        <div class="card">
+          <h2>חיפוש עץ משפחה</h2>
+          <p>
+            הדף מתחיל ריק. הקלד/י שם למעלה כדי למצוא אדם לפי
+            <bdi><b>hebrewName</b></bdi> או <bdi><b>englishName</b></bdi>,
+            בחר/י תוצאה, ואז אפשר לנווט בעץ בלחיצה על אנשים.
+          </p>
+        </div>
+      </div>
+
+      <div id="treeWrap">
+        <div id="tree"></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.balkan.app/familytree2.js"></script>
+    <script src="members.js"></script>
+    <script>
+      // --- small helpers ---
+      function escapeHtml_(s) {
+        return String(s || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
       }
 
-      // Direct connections (used only for expanding around Search target)
-      function getDirectConnectedIds(id) {
-        const m = byId.get(id);
-        const out = new Set([id]);
-        if (!m) return out;
-
-        if (m.fatherId) out.add(m.fatherId);
-        if (m.motherId) out.add(m.motherId);
-
-        if (Array.isArray(m.spouseIds)) {
-          for (const sid of m.spouseIds) out.add(sid);
-        }
-
-        (childrenOf.get(id) || []).forEach(cid => out.add(cid));
-
-        const sibs = new Set();
-        if (m.fatherId) (childrenOf.get(m.fatherId) || []).forEach(cid => sibs.add(cid));
-        if (m.motherId) (childrenOf.get(m.motherId) || []).forEach(cid => sibs.add(cid));
-        sibs.forEach(cid => out.add(cid));
-
-        return out;
-      }
-
-      // ----------------- Root -----------------
-      const root = byId.get(ROOT_ID) || members[0];
-      if (!byId.get(ROOT_ID)) {
-        console.warn(`Root id ${ROOT_ID} not found; falling back to members[0].`);
-      }
-
-      // ----------------- Generation colors -----------------
-      const genPalette = [
-        "#1E88E5", "#43A047", "#FB8C00", "#8E24AA", "#D81B60",
-        "#00ACC1", "#7CB342", "#FDD835", "#5E35B1", "#F4511E"
-      ];
-
-      // BFS levels: root=0, children=+1, parents=-1
-      const level = new Map();
-      const qGen = [root.id];
-      level.set(root.id, 0);
-
-      while (qGen.length) {
-        const cur = qGen.shift();
-        const curLevel = level.get(cur);
-
-        for (const cid of (childrenOf.get(cur) || [])) {
-          if (!level.has(cid)) {
-            level.set(cid, curLevel + 1);
-            qGen.push(cid);
-          }
-        }
-        for (const pid of parentsOf(cur)) {
-          if (!level.has(pid)) {
-            level.set(pid, curLevel - 1);
-            qGen.push(pid);
-          }
-        }
-      }
-
-      // Apply generation color to BORDER; keep interior white for all nodes.
-      for (const m of members) {
-        const l = (level.has(m.id) ? level.get(m.id) : 0);
-        const idx = ((l % genPalette.length) + genPalette.length) % genPalette.length;
-
-        m.color = "#ffffff";
-        if (!m.borderColor) m.borderColor = genPalette[idx];
-      }
-
-      // ----------------- Init tree -----------------
-      const ft = new FamilyTree2(document.getElementById("tree"));
-
-      // Custom node HTML (RTL-friendly) - NEW FORMAT
-      ft.template.html = function (node) {
-        const m = node.familyMember || {};
-
-        const heb = String(m.hebrewName || "").trim();
-        const eng = String(m.englishName || "").trim();
-        const comment = String(m.comment || "").trim();
-
-        const birthG = String(m.birthDate || "").trim();
-        const birthH = String(m.hebrewBirthDate || "").trim();
-        const deathG = String(m.deathDate || "").trim();
-        const deathH = String(m.deathHebrewDate || "").trim();
-
-        const bg = m.color || "#ffffff";
-        const border = m.borderColor || "#d1d5db";
-
-        // Line 1: Hebrew if exists else English
-        const line1 = heb || eng || "";
-        // Line 2: English only if Hebrew exists
-        const line2 = (heb && eng) ? eng : "";
-
-        const nameHtml = `
-          ${line1 ? `<div style="font-size:16px; font-weight:700; color:#111;"><bdi>${escapeHtml_(line1)}</bdi></div>` : ""}
-          ${line2 ? `<div style="font-size:13px; margin-top:2px; color:#111;"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
-        `;
-
-        const commentHtml = comment
-          ? `<div style="font-size:12px; margin-top:6px; color:#111; white-space:pre-wrap;"><bdi>${escapeHtml_(comment)}</bdi></div>`
-          : "";
-
-        const birthHtml = (birthG || birthH)
-          ? `<div style="font-size:12px; margin-top:6px; color:#111;">
-               <bdi>לידה</bdi>
-               ${birthG ? `<bdi>${escapeHtml_(birthG)}</bdi>` : ""}
-               ${birthG && birthH ? " " : ""}
-               ${birthH ? `(<bdi>${escapeHtml_(birthH)}</bdi>)` : ""}
-             </div>`
-          : "";
-
-        const deathHtml = (deathG || deathH)
-          ? `<div style="font-size:12px; margin-top:2px; color:#444;">
-               <bdi>פטירה</bdi>
-               ${deathG ? `<bdi>${escapeHtml_(deathG)}</bdi>` : ""}
-               ${deathG && deathH ? " " : ""}
-               ${deathH ? `(<bdi>${escapeHtml_(deathH)}</bdi>)` : ""}
-             </div>`
-          : "";
-
-        return `
-          <div style="
-            padding:14px;
-            direction: rtl;
-            text-align: center;
-            background:${bg};
-            border:7px solid ${border};
-            border-radius:10px;
-            box-sizing:border-box;
-            color:#111;
-          ">
-            ${nameHtml}
-            ${commentHtml}
-            ${birthHtml}
-            ${deathHtml}
-          </div>
-        `;
-      };
-
-      // Start with ONLY the root visible (collapse everything else)
-      ft.collapsedIds = members
-        .map(m => m.id)
-        .filter(id => id !== root.id);
-
-      // ----------------- Search -----------------
-      function normalizeName(s) {
+      function normalizeName_(s) {
         return String(s || "")
           .normalize("NFKD")
           .replace(/[\u0591-\u05C7]/g, "") // remove niqqud/cantillation
@@ -346,167 +221,248 @@
           .toLowerCase();
       }
 
-      // Search by Hebrew + English, show both in results when available
-      const searchable = members.map(m => {
-        const heb = String(m.hebrewName || "").trim();
-        const eng = String(m.englishName || "").trim();
-        const combined = (heb + " " + eng).trim();
+      window.addEventListener("DOMContentLoaded", () => {
+        const members = Array.isArray(window.members) ? window.members : [];
+        const FamilyTreeCtor =
+          typeof window.FamilyTree2 !== "undefined"
+            ? window.FamilyTree2
+            : typeof window.FamilyTree !== "undefined"
+              ? window.FamilyTree
+              : null;
 
-        return {
-          id: m.id,
-          hebrewName: heb,
-          englishName: eng,
-          searchN: normalizeName(combined)
-        };
-      });
-
-      function findMatches(query) {
-        const nq = normalizeName(query);
-        if (!nq) return [];
-        return searchable.filter(x => x.searchN.includes(nq)).slice(0, 30);
-      }
-
-      // Graph adjacency (for expanding path to hidden nodes)
-      const neighbors = new Map();
-      function addEdge(a, b) {
-        if (!a || !b) return;
-        if (!neighbors.has(a)) neighbors.set(a, new Set());
-        if (!neighbors.has(b)) neighbors.set(b, new Set());
-        neighbors.get(a).add(b);
-        neighbors.get(b).add(a);
-      }
-
-      for (const m of members) {
-        if (m.fatherId) addEdge(m.id, m.fatherId);
-        if (m.motherId) addEdge(m.id, m.motherId);
-        if (Array.isArray(m.spouseIds)) for (const sid of m.spouseIds) addEdge(m.id, sid);
-        (childrenOf.get(m.id) || []).forEach(cid => addEdge(m.id, cid));
-      }
-
-      function bfsPath(startId, targetId) {
-        if (startId === targetId) return [startId];
-        const prev = new Map();
-        const q = [startId];
-        prev.set(startId, null);
-
-        while (q.length) {
-          const cur = q.shift();
-          const ns = neighbors.get(cur);
-          if (!ns) continue;
-
-          for (const nxt of ns) {
-            if (prev.has(nxt)) continue;
-            prev.set(nxt, cur);
-
-            if (nxt === targetId) {
-              const path = [];
-              let x = nxt;
-              while (x != null) { path.push(x); x = prev.get(x); }
-              path.reverse();
-              return path;
-            }
-            q.push(nxt);
-          }
-        }
-        return null;
-      }
-
-      function expandPathTo(targetId) {
-        const startId = root.id;
-        const path = bfsPath(startId, targetId) || [targetId];
-
-        const collapsed = new Set(ft.collapsedIds || []);
-        for (const id of path) collapsed.delete(id);
-        getDirectConnectedIds(targetId).forEach(id => collapsed.delete(id));
-
-        ft.collapsedIds = Array.from(collapsed);
-        ft.draw(targetId);
-      }
-
-      // ----------------- Wire Search UI -----------------
-      const elInput = document.getElementById("searchInput");
-      const elBtn = document.getElementById("searchBtn");
-      const elClear = document.getElementById("clearBtn");
-      const elResults = document.getElementById("searchResults");
-
-      function hideResults() {
-        elResults.hidden = true;
-        elResults.innerHTML = "";
-      }
-
-      function renderResults(list) {
-        if (!list.length) {
-          elResults.hidden = false;
-          elResults.innerHTML = `<div class="sr-item">לא נמצאו תוצאות</div>`;
+        if (!FamilyTreeCtor) {
+          document.getElementById("empty").innerHTML =
+            '<div class="card"><h2>שגיאה</h2><p>לא הצלחתי לטעון את <bdi><b>familytree2.js</b></bdi>. בדוק/י חיבור רשת / כתובת CDN.</p></div>';
           return;
         }
 
-        elResults.hidden = false;
-        elResults.innerHTML = list.map(x => {
-          const heb = String(x.hebrewName || "").trim();
-          const eng = String(x.englishName || "").trim();
+        if (!members.length) {
+          document.getElementById("empty").innerHTML =
+            '<div class="card"><h2>שגיאה</h2><p>לא נמצא מידע ב-<bdi><b>members.js</b></bdi> (צריך <bdi><b>window.members</b></bdi> שהוא מערך).</p></div>';
+          return;
+        }
 
-          const line1 = heb || eng || String(x.id);
-          const line2 = (heb && eng) ? eng : "";
+        const byId = new Map(members.map((m) => [m.id, m]));
+        const childrenOf = new Map(); // parentId -> childIds[]
+        for (const m of members) {
+          if (m.fatherId) {
+            if (!childrenOf.has(m.fatherId)) childrenOf.set(m.fatherId, []);
+            childrenOf.get(m.fatherId).push(m.id);
+          }
+          if (m.motherId) {
+            if (!childrenOf.has(m.motherId)) childrenOf.set(m.motherId, []);
+            childrenOf.get(m.motherId).push(m.id);
+          }
+        }
 
-          return `
-            <div class="sr-item" data-id="${x.id}">
-              <div><bdi>${escapeHtml_(line1)}</bdi></div>
-              ${line2 ? `<div style="font-size:12px; color:#555; margin-top:2px;"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
-            </div>
-          `;
-        }).join("");
-      }
+        const searchable = members.map((m) => {
+          const heb = String(m.hebrewName || "").trim();
+          const eng = String(m.englishName || "").trim();
+          return {
+            id: m.id,
+            hebrewName: heb,
+            englishName: eng,
+            searchN: normalizeName_(heb + " " + eng),
+          };
+        });
 
-      function doSearch() {
-        renderResults(findMatches(elInput.value));
-      }
+        // Fallback shape for non-"addFamilyMembers" APIs
+        const nodesForTree = members.map((m) => ({
+          id: m.id,
+          fid: m.fatherId || null,
+          mid: m.motherId || null,
+          pids: Array.isArray(m.spouseIds) ? m.spouseIds : [],
+          name: String(m.hebrewName || m.englishName || "").trim(),
+          hebrewName: m.hebrewName || "",
+          englishName: m.englishName || "",
+        }));
 
-      elBtn.addEventListener("click", doSearch);
-      elInput.addEventListener("input", doSearch);
-      elInput.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") hideResults();
-        if (e.key === "Enter") doSearch();
+        const elQ = document.getElementById("q");
+        const elClear = document.getElementById("clear");
+        const elResults = document.getElementById("results");
+        document.getElementById("count").textContent = `סה״כ ${members.length}`;
+
+        let activeIndex = -1;
+        let lastResults = [];
+        let tree = null;
+        let treeLoaded = false;
+
+        function directNeighborhood_(id) {
+          const m = byId.get(id);
+          const out = new Set([id]);
+          if (!m) return out;
+          if (m.fatherId) out.add(m.fatherId);
+          if (m.motherId) out.add(m.motherId);
+          if (Array.isArray(m.spouseIds)) for (const sid of m.spouseIds) out.add(sid);
+          for (const cid of childrenOf.get(id) || []) out.add(cid);
+          return out;
+        }
+
+        function showTree_() {
+          document.getElementById("treeWrap").style.display = "block";
+          document.getElementById("empty").style.display = "none";
+        }
+
+        function hideResults_() {
+          elResults.hidden = true;
+          elResults.innerHTML = "";
+          activeIndex = -1;
+          lastResults = [];
+        }
+
+        function renderResults_(list) {
+          lastResults = list;
+          activeIndex = list.length ? 0 : -1;
+          elResults.hidden = false;
+
+          if (!list.length) {
+            elResults.innerHTML =
+              '<div class="item"><div class="primary">לא נמצאו תוצאות</div></div>';
+            return;
+          }
+
+          elResults.innerHTML = list
+            .map((x, idx) => {
+              const heb = String(x.hebrewName || "").trim();
+              const eng = String(x.englishName || "").trim();
+              const primary = heb || eng || String(x.id);
+              const secondary = heb && eng ? eng : "";
+              return `
+                <div class="item" role="option" data-id="${x.id}" aria-selected="${idx === activeIndex}">
+                  <div class="primary"><bdi>${escapeHtml_(primary)}</bdi></div>
+                  ${secondary ? `<div class="secondary"><bdi>${escapeHtml_(secondary)}</bdi></div>` : ""}
+                </div>
+              `;
+            })
+            .join("");
+        }
+
+        function findMatches_(q) {
+          const nq = normalizeName_(q);
+          if (!nq) return [];
+          // simple contains match; keep fast and predictable
+          return searchable.filter((x) => x.searchN.includes(nq)).slice(0, 40);
+        }
+
+        function ensureTree_() {
+          if (tree) return;
+          tree = new FamilyTreeCtor(document.getElementById("tree"));
+
+          // Simple node card: Hebrew + English (if present)
+          if (tree.template && typeof tree.template === "object") {
+            tree.template.html = function (node) {
+              const m = node.familyMember || node || {};
+              const heb = String(m.hebrewName || "").trim();
+              const eng = String(m.englishName || "").trim();
+              const line1 = heb || eng || "";
+              const line2 = heb && eng ? eng : "";
+              return `
+                <div style="
+                  padding:12px 14px;
+                  direction: rtl;
+                  text-align: center;
+                  background:#fff;
+                  border:2px solid #e5e7eb;
+                  border-radius:12px;
+                  box-sizing:border-box;
+                  color:#111;
+                ">
+                  <div style="font-size:15px; font-weight:750;"><bdi>${escapeHtml_(line1)}</bdi></div>
+                  ${line2 ? `<div style="font-size:12px; color:#6b7280; margin-top:2px;"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
+                </div>
+              `;
+            };
+          }
+        }
+
+        function focusPerson_(id) {
+          ensureTree_();
+          showTree_();
+
+          // Collapse everything except the selected person + immediate family.
+          const keep = directNeighborhood_(id);
+          const collapsed = members.map((m) => m.id).filter((mid) => !keep.has(mid));
+          tree.collapsedIds = collapsed;
+
+          if (!treeLoaded) {
+            if (typeof tree.addFamilyMembers === "function") {
+              tree.addFamilyMembers(members);
+              treeLoaded = true;
+            } else if (typeof tree.load === "function") {
+              tree.load(nodesForTree);
+              treeLoaded = true;
+            }
+          }
+
+          // Draw / center on the selected node (method name differs by version)
+          if (typeof tree.draw === "function") {
+            tree.draw(id);
+          } else if (typeof tree.center === "function") {
+            tree.center(id);
+          }
+        }
+
+        function selectActive_() {
+          if (activeIndex < 0 || activeIndex >= lastResults.length) return;
+          const id = Number(lastResults[activeIndex].id);
+          if (!id) return;
+          hideResults_();
+          focusPerson_(id);
+        }
+
+        elQ.addEventListener("input", () => {
+          const q = elQ.value;
+          if (!q.trim()) {
+            hideResults_();
+            return;
+          }
+          renderResults_(findMatches_(q));
+        });
+
+        elQ.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            hideResults_();
+            return;
+          }
+          if (e.key === "Enter") {
+            selectActive_();
+            return;
+          }
+          if (!lastResults.length) return;
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            activeIndex = Math.min(activeIndex + 1, lastResults.length - 1);
+            renderResults_(lastResults);
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            activeIndex = Math.max(activeIndex - 1, 0);
+            renderResults_(lastResults);
+          }
+        });
+
+        elClear.addEventListener("click", () => {
+          elQ.value = "";
+          hideResults_();
+          elQ.focus();
+        });
+
+        elResults.addEventListener("click", (e) => {
+          const item = e.target.closest(".item");
+          if (!item) return;
+          const id = Number(item.getAttribute("data-id"));
+          if (!id) return;
+          hideResults_();
+          focusPerson_(id);
+        });
+
+        document.addEventListener("click", (e) => {
+          if (!e.target.closest(".topbar") && !e.target.closest("#results")) hideResults_();
+        });
+
+        // start focused in the search box
+        elQ.focus();
       });
-
-      elClear.addEventListener("click", () => {
-        elInput.value = "";
-        hideResults();
-      });
-
-      elResults.addEventListener("click", (e) => {
-        const item = e.target.closest(".sr-item");
-        if (!item) return;
-        const id = Number(item.getAttribute("data-id"));
-        if (!id) return;
-        hideResults();
-        expandPathTo(id);
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!e.target.closest("#searchBar") && !e.target.closest("#searchResults")) hideResults();
-      });
-
-      // ----------------- Initial draw -----------------
-      ft.addFamilyMembers(members).draw(root.id);
-    });
-
-    function escapeHtml_(s) {
-      return String(s || "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-  </script>
-
-  <div id="footerNote">
-    הערות אפשר לשלוח למייל
-    <a href="mailto:amnonw@gmail.com" style="color:#1E88E5; text-decoration:none;">
-      amnonw@gmail.com
-    </a>
-  </div>
-
-</body>
+    </script>
+  </body>
 </html>
