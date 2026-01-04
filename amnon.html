@@ -25,15 +25,6 @@
     <script src="https://cdn.balkan.app/familytree2.js"></script>
     <script src="members.js"></script>
     <script>
-      function escapeHtml_(s) {
-        return String(s || "")
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#039;");
-      }
-
       window.addEventListener("DOMContentLoaded", () => {
         const members = Array.isArray(window.members) ? window.members : [];
         const FamilyTreeCtor =
@@ -63,56 +54,24 @@
           return;
         }
 
-        // Build nodes in the shape Balkan expects for relationships:
-        // id + fid (father) + mid (mother) + pids (partners/spouses).
-        // We load ALL nodes so the UI can expand relatives, but we start collapsed.
-        const nodes = members.map((m) => ({
-          id: m.id,
-          fid: m.fatherId || null,
-          mid: m.motherId || null,
-          pids: Array.isArray(m.spouseIds) ? m.spouseIds : [],
-          name: String(m.hebrewName || m.englishName || "").trim(),
-          hebrewName: m.hebrewName || "",
-          englishName: m.englishName || "",
+        // FamilyTree2 expects your original relationship fields:
+        // `fatherId`, `motherId`, `spouseIds`, `childIds`, `siblingIds`, ...
+        // Add a `name` field so the default template has something to render.
+        const family = members.map((m) => ({
+          ...m,
+          name: String(m.englishName || m.hebrewName || "").trim(),
         }));
 
         const tree = new FamilyTreeCtor(document.getElementById("tree"));
 
-        // Simple node card (shows Hebrew + English)
-        if (tree.template && typeof tree.template === "object") {
-          tree.template.html = function (node) {
-            const m = node.familyMember || node || {};
-            const heb = String(m.hebrewName || "").trim();
-            const eng = String(m.englishName || "").trim();
-            const line1 = heb || eng || "";
-            const line2 = heb && eng ? eng : "";
-            return `
-              <div style="
-                padding:12px 14px;
-                direction: rtl;
-                text-align: center;
-                background:#fff;
-                border:2px solid #e5e7eb;
-                border-radius:12px;
-                box-sizing:border-box;
-                color:#111;
-              ">
-                <div style="font-size:16px; font-weight:750;"><bdi>${escapeHtml_(line1)}</bdi></div>
-                ${line2 ? `<div style="font-size:12px; color:#6b7280; margin-top:2px;"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
-              </div>
-            `;
-          };
-        }
+        // Ensure the navigation bar is visible (zoom/fit, etc.)
+        // (Expand/collapse controls on the node are handled by the library's template/UI.)
+        if ("navigationBar" in tree) tree.navigationBar = true;
 
-        // Load and render (API name differs by build/version)
-        if (typeof tree.load === "function") {
-          tree.load(nodes);
-        } else if (typeof tree.addFamilyMembers === "function") {
-          tree.addFamilyMembers(nodes);
-        }
+        tree.addFamilyMembers(family);
 
         // Start simple: show only Amnon, but keep the rest available to expand.
-        tree.collapsedIds = nodes.map((n) => n.id).filter((id) => id !== amnon.id);
+        tree.collapsedIds = family.map((n) => n.id).filter((id) => id !== amnon.id);
 
         if (typeof tree.draw === "function") {
           tree.draw(amnon.id);
