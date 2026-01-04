@@ -52,7 +52,7 @@
           return;
         }
 
-        // Pick Amnon (matches your dataset: id=1004, englishName="Amnon David Wiesel")
+        // Pick Amnon (matches your dataset: id=1004, englishName=\"Amnon David Wiesel\")
         const amnon =
           members.find((m) => m.id === 1004) ||
           members.find((m) => String(m.englishName || "").toLowerCase().includes("amnon")) ||
@@ -63,89 +63,50 @@
           return;
         }
 
-        // FamilyTree2 expects your original relationship fields:
-        // `fatherId`, `motherId`, `spouseIds`, `childIds`, `siblingIds`, ...
-        // Add a `name` field so the default template has something to render.
-        const family = members.map((m) => ({
-          ...m,
-          name: String(m.englishName || m.hebrewName || "").trim(),
-        }));
+        // Minimal node set: ONLY Amnon (single node tree)
+        const nodes = [
+          {
+            id: amnon.id,
+            name: String(amnon.englishName || amnon.hebrewName || "").trim(),
+            hebrewName: amnon.hebrewName || "",
+            englishName: amnon.englishName || "",
+          },
+        ];
 
         const tree = new FamilyTreeCtor(document.getElementById("tree"));
 
-        // Ensure the navigation bar is visible (zoom/fit, etc.)
-        // (Expand/collapse controls on the node are handled by the library's template/UI.)
-        if ("navigationBar" in tree) tree.navigationBar = true;
-
-        // Keep the ORIGINAL node content for non-focused nodes.
-        // Add extra details ONLY for the focused node (the one you center on).
-        if (typeof FamilyTreeCtor.createTemplate === "function") {
-          const baseTemplateName = tree.templateName || "snickers";
-          const focusDetails = FamilyTreeCtor.createTemplate("focusDetails", baseTemplateName);
-
-          focusDetails.nodes.focus.html = function (t) {
-            const m = t.familyMember || {};
-
-            const hebrewName = String(m.hebrewName || "").trim();
-            const englishName = String(m.englishName || "").trim();
-            const comment = String(m.comment || "").trim();
-            const birthDate = String(m.birthDate || "").trim();
-            const hebrewBirthDate = String(m.hebrewBirthDate || "").trim();
-            const deathDate = String(m.deathDate || "").trim();
-            const deathHebrewDate = String(m.deathHebrewDate || "").trim();
-
-            const nameLine = [hebrewName, englishName].filter(Boolean).join(" · ");
-            const fallbackName = String(m.name || "").trim();
-            const line1 = nameLine || fallbackName || "";
-
-            const birthLine =
-              birthDate || hebrewBirthDate
-                ? `${escapeHtml_(birthDate)}${birthDate && hebrewBirthDate ? " " : ""}${
-                    hebrewBirthDate ? `(${escapeHtml_(hebrewBirthDate)})` : ""
-                  }`
-                : "";
-
-            const deathLine =
-              deathDate || deathHebrewDate
-                ? `${escapeHtml_(deathDate)}${deathDate && deathHebrewDate ? " " : ""}${
-                    deathHebrewDate ? `(${escapeHtml_(deathHebrewDate)})` : ""
-                  }`
-                : "";
-
-            // Focus node only: show details. Non-focused nodes use the base template.
+        // Simple node card (shows Hebrew + English)
+        if (tree.template && typeof tree.template === "object") {
+          tree.template.html = function (node) {
+            const m = node.familyMember || node || {};
+            const heb = String(m.hebrewName || "").trim();
+            const eng = String(m.englishName || "").trim();
+            const line1 = heb || eng || "";
+            const line2 = heb && eng ? eng : "";
             return `
-              <div style="padding:10px 12px; direction: rtl; text-align: right; height:100%; box-sizing:border-box;">
-                <div style="text-align:center; font-size:15px; font-weight:750; color:#111;">
-                  <bdi>${escapeHtml_(line1)}</bdi>
-                </div>
-                ${
-                  comment
-                    ? `<div style="margin-top:6px; color:#374151; white-space:pre-wrap;"><bdi>${escapeHtml_(
-                        comment
-                      )}</bdi></div>`
-                    : ""
-                }
-                ${
-                  birthLine
-                    ? `<div style="margin-top:6px; font-size:12px; color:#111;"><bdi>${birthLine}</bdi></div>`
-                    : ""
-                }
-                ${
-                  deathLine
-                    ? `<div style="margin-top:2px; font-size:12px; color:#374151;"><bdi>${deathLine}</bdi></div>`
-                    : ""
-                }
+              <div style="
+                padding:12px 14px;
+                direction: rtl;
+                text-align: center;
+                background:#fff;
+                border:2px solid #e5e7eb;
+                border-radius:12px;
+                box-sizing:border-box;
+                color:#111;
+              ">
+                <div style="font-size:16px; font-weight:750;"><bdi>${escapeHtml_(line1)}</bdi></div>
+                ${line2 ? `<div style="font-size:12px; color:#6b7280; margin-top:2px;"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
               </div>
             `;
           };
-
-          tree.templateName = "focusDetails";
         }
 
-        tree.addFamilyMembers(family);
-
-        // Start simple: show only Amnon, but keep the rest available to expand.
-        tree.collapsedIds = family.map((n) => n.id).filter((id) => id !== amnon.id);
+        // Load and render (API name differs by build/version)
+        if (typeof tree.load === "function") {
+          tree.load(nodes);
+        } else if (typeof tree.addFamilyMembers === "function") {
+          tree.addFamilyMembers([amnon]);
+        }
 
         if (typeof tree.draw === "function") {
           tree.draw(amnon.id);
