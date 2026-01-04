@@ -77,12 +77,13 @@
         // (Expand/collapse controls on the node are handled by the library's template/UI.)
         if ("navigationBar" in tree) tree.navigationBar = true;
 
-        // Custom template with more details, while keeping the library's built-in controls.
-        // (We use the supported template API instead of overriding the whole node renderer.)
+        // Keep the ORIGINAL node content for non-focused nodes.
+        // Add extra details ONLY for the focused node (the one you center on).
         if (typeof FamilyTreeCtor.createTemplate === "function") {
-          const details = FamilyTreeCtor.createTemplate("details", tree.templateName || "snickers");
+          const baseTemplateName = tree.templateName || "snickers";
+          const focusDetails = FamilyTreeCtor.createTemplate("focusDetails", baseTemplateName);
 
-          details.html = function (t) {
+          focusDetails.nodes.focus.html = function (t) {
             const m = t.familyMember || {};
 
             const hebrewName = String(m.hebrewName || "").trim();
@@ -111,65 +112,34 @@
                   }`
                 : "";
 
+            // Focus node only: show details. Non-focused nodes use the base template.
             return `
-              <div style="
-                padding:7px;
-                direction: rtl;
-                text-align: right;
-                height:100%;
-                box-sizing:border-box;
-                line-height:1.2;
-                font-size:11px;
-                color:#111;
-              ">
-                <div style="
-                  font-weight:750;
-                  font-size:12px;
-                  text-align:center;
-                  white-space:nowrap;
-                  overflow:hidden;
-                  text-overflow:ellipsis;
-                " title="${escapeHtml_(line1)}"><bdi>${escapeHtml_(line1)}</bdi></div>
-
+              <div style="padding:10px 12px; direction: rtl; text-align: right; height:100%; box-sizing:border-box;">
+                <div style="text-align:center; font-size:15px; font-weight:750; color:#111;">
+                  <bdi>${escapeHtml_(line1)}</bdi>
+                </div>
                 ${
                   comment
-                    ? `<div style="
-                        margin-top:3px;
-                        color:#374151;
-                        white-space:nowrap;
-                        overflow:hidden;
-                        text-overflow:ellipsis;
-                      " title="${escapeHtml_(comment)}"><bdi>${escapeHtml_(comment)}</bdi></div>`
+                    ? `<div style="margin-top:6px; color:#374151; white-space:pre-wrap;"><bdi>${escapeHtml_(
+                        comment
+                      )}</bdi></div>`
                     : ""
                 }
-
                 ${
                   birthLine
-                    ? `<div style="
-                        margin-top:3px;
-                        white-space:nowrap;
-                        overflow:hidden;
-                        text-overflow:ellipsis;
-                      " title="${birthLine}"><bdi>${birthLine}</bdi></div>`
+                    ? `<div style="margin-top:6px; font-size:12px; color:#111;"><bdi>${birthLine}</bdi></div>`
                     : ""
                 }
-
                 ${
                   deathLine
-                    ? `<div style="
-                        margin-top:2px;
-                        color:#374151;
-                        white-space:nowrap;
-                        overflow:hidden;
-                        text-overflow:ellipsis;
-                      " title="${deathLine}"><bdi>${deathLine}</bdi></div>`
+                    ? `<div style="margin-top:2px; font-size:12px; color:#374151;"><bdi>${deathLine}</bdi></div>`
                     : ""
                 }
               </div>
             `;
           };
 
-          tree.templateName = "details";
+          tree.templateName = "focusDetails";
         }
 
         tree.addFamilyMembers(family);
