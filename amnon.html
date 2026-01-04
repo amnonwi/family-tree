@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Amnon Wiesel (Family Tree)</title>
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        background: #f3f4f6;
+      }
+      #tree {
+        width: 100%;
+        height: 100%;
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="tree"></div>
+
+    <script src="https://cdn.balkan.app/familytree2.js"></script>
+    <script src="members.js"></script>
+    <script>
+      function escapeHtml_(s) {
+        return String(s || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        const members = Array.isArray(window.members) ? window.members : [];
+        const FamilyTreeCtor =
+          typeof window.FamilyTree2 !== "undefined"
+            ? window.FamilyTree2
+            : typeof window.FamilyTree !== "undefined"
+              ? window.FamilyTree
+              : null;
+
+        if (!FamilyTreeCtor) {
+          document.body.innerHTML = "<pre>familytree2.js failed to load.</pre>";
+          return;
+        }
+        if (!members.length) {
+          document.body.innerHTML = "<pre>members.js did not provide window.members.</pre>";
+          return;
+        }
+
+        // Pick Amnon (matches your dataset: id=1004, englishName="Amnon David Wiesel")
+        const amnon =
+          members.find((m) => m.id === 1004) ||
+          members.find((m) => String(m.englishName || "").toLowerCase().includes("amnon")) ||
+          null;
+
+        if (!amnon) {
+          document.body.innerHTML = "<pre>Could not find Amnon in members.js.</pre>";
+          return;
+        }
+
+        // Minimal node set: ONLY Amnon (single node tree)
+        const nodes = [
+          {
+            id: amnon.id,
+            name: String(amnon.englishName || amnon.hebrewName || "").trim(),
+            hebrewName: amnon.hebrewName || "",
+            englishName: amnon.englishName || "",
+          },
+        ];
+
+        const tree = new FamilyTreeCtor(document.getElementById("tree"));
+
+        // Simple node card (shows Hebrew + English)
+        if (tree.template && typeof tree.template === "object") {
+          tree.template.html = function (node) {
+            const m = node.familyMember || node || {};
+            const heb = String(m.hebrewName || "").trim();
+            const eng = String(m.englishName || "").trim();
+            const line1 = heb || eng || "";
+            const line2 = heb && eng ? eng : "";
+            return `
+              <div style="
+                padding:12px 14px;
+                direction: rtl;
+                text-align: center;
+                background:#fff;
+                border:2px solid #e5e7eb;
+                border-radius:12px;
+                box-sizing:border-box;
+                color:#111;
+              ">
+                <div style="font-size:16px; font-weight:750;"><bdi>${escapeHtml_(line1)}</bdi></div>
+                ${line2 ? `<div style="font-size:12px; color:#6b7280; margin-top:2px;"><bdi>${escapeHtml_(line2)}</bdi></div>` : ""}
+              </div>
+            `;
+          };
+        }
+
+        // Load and render (API name differs by build/version)
+        if (typeof tree.load === "function") {
+          tree.load(nodes);
+        } else if (typeof tree.addFamilyMembers === "function") {
+          tree.addFamilyMembers([amnon]);
+        }
+
+        if (typeof tree.draw === "function") {
+          tree.draw(amnon.id);
+        }
+      });
+    </script>
+  </body>
+</html>
+
