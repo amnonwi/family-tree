@@ -63,15 +63,18 @@
           return;
         }
 
-        // Minimal node set: ONLY Amnon (single node tree)
-        const nodes = [
-          {
-            id: amnon.id,
-            name: String(amnon.englishName || amnon.hebrewName || "").trim(),
-            hebrewName: amnon.hebrewName || "",
-            englishName: amnon.englishName || "",
-          },
-        ];
+        // Build nodes in the shape Balkan expects for relationships:
+        // id + fid (father) + mid (mother) + pids (partners/spouses).
+        // We load ALL nodes so the UI can expand relatives, but we start collapsed.
+        const nodes = members.map((m) => ({
+          id: m.id,
+          fid: m.fatherId || null,
+          mid: m.motherId || null,
+          pids: Array.isArray(m.spouseIds) ? m.spouseIds : [],
+          name: String(m.hebrewName || m.englishName || "").trim(),
+          hebrewName: m.hebrewName || "",
+          englishName: m.englishName || "",
+        }));
 
         const tree = new FamilyTreeCtor(document.getElementById("tree"));
 
@@ -105,8 +108,11 @@
         if (typeof tree.load === "function") {
           tree.load(nodes);
         } else if (typeof tree.addFamilyMembers === "function") {
-          tree.addFamilyMembers([amnon]);
+          tree.addFamilyMembers(nodes);
         }
+
+        // Start simple: show only Amnon, but keep the rest available to expand.
+        tree.collapsedIds = nodes.map((n) => n.id).filter((id) => id !== amnon.id);
 
         if (typeof tree.draw === "function") {
           tree.draw(amnon.id);
