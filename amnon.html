@@ -25,6 +25,15 @@
     <script src="https://cdn.balkan.app/familytree2.js"></script>
     <script src="members.js"></script>
     <script>
+      function escapeHtml_(s) {
+        return String(s || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
       window.addEventListener("DOMContentLoaded", () => {
         const members = Array.isArray(window.members) ? window.members : [];
         const FamilyTreeCtor =
@@ -67,6 +76,71 @@
         // Ensure the navigation bar is visible (zoom/fit, etc.)
         // (Expand/collapse controls on the node are handled by the library's template/UI.)
         if ("navigationBar" in tree) tree.navigationBar = true;
+
+        // Custom template with more details, while keeping the library's built-in controls.
+        // (We use the supported template API instead of overriding the whole node renderer.)
+        if (typeof FamilyTreeCtor.createTemplate === "function") {
+          const details = FamilyTreeCtor.createTemplate("details", tree.templateName || "snickers");
+          details.width = 300;
+          details.height = 190;
+
+          details.html = function (t) {
+            const m = t.familyMember || {};
+
+            const hebrewName = String(m.hebrewName || "").trim();
+            const englishName = String(m.englishName || "").trim();
+            const comment = String(m.comment || "").trim();
+            const birthDate = String(m.birthDate || "").trim();
+            const hebrewBirthDate = String(m.hebrewBirthDate || "").trim();
+            const deathDate = String(m.deathDate || "").trim();
+            const deathHebrewDate = String(m.deathHebrewDate || "").trim();
+
+            const primary = hebrewName || englishName || String(m.name || "").trim() || "";
+            const secondary = hebrewName && englishName ? englishName : "";
+
+            const birthLine =
+              birthDate || hebrewBirthDate
+                ? `<div style="margin-top:6px;"><bdi><b>לידה:</b></bdi> <bdi>${escapeHtml_(birthDate)}</bdi>${
+                    birthDate && hebrewBirthDate ? " " : ""
+                  }${hebrewBirthDate ? `(<bdi>${escapeHtml_(hebrewBirthDate)}</bdi>)` : ""}</div>`
+                : "";
+
+            const deathLine =
+              deathDate || deathHebrewDate
+                ? `<div style="margin-top:3px; color:#374151;"><bdi><b>פטירה:</b></bdi> <bdi>${escapeHtml_(deathDate)}</bdi>${
+                    deathDate && deathHebrewDate ? " " : ""
+                  }${deathHebrewDate ? `(<bdi>${escapeHtml_(deathHebrewDate)}</bdi>)` : ""}</div>`
+                : "";
+
+            const commentLine = comment
+              ? `<div style="margin-top:6px; color:#374151; white-space:pre-wrap;"><bdi>${escapeHtml_(
+                  comment
+                )}</bdi></div>`
+              : "";
+
+            return `
+              <div style="padding:10px 12px; direction: rtl; text-align: right; height:100%; box-sizing:border-box;">
+                <div style="text-align:center; font-size:15px; font-weight:750; color:#111;">
+                  <bdi>${escapeHtml_(primary)}</bdi>
+                </div>
+                ${
+                  secondary
+                    ? `<div style="text-align:center; font-size:12px; margin-top:2px; color:#6b7280;"><bdi>${escapeHtml_(
+                        secondary
+                      )}</bdi></div>`
+                    : ""
+                }
+                <div style="font-size:12px; margin-top:6px; color:#111; line-height:1.35;">
+                  ${birthLine}
+                  ${deathLine}
+                  ${commentLine}
+                </div>
+              </div>
+            `;
+          };
+
+          tree.templateName = "details";
+        }
 
         tree.addFamilyMembers(family);
 
