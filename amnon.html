@@ -81,8 +81,6 @@
         // (We use the supported template API instead of overriding the whole node renderer.)
         if (typeof FamilyTreeCtor.createTemplate === "function") {
           const details = FamilyTreeCtor.createTemplate("details", tree.templateName || "snickers");
-          details.width = 300;
-          details.height = 190;
 
           details.html = function (t) {
             const m = t.familyMember || {};
@@ -95,46 +93,78 @@
             const deathDate = String(m.deathDate || "").trim();
             const deathHebrewDate = String(m.deathHebrewDate || "").trim();
 
-            const primary = hebrewName || englishName || String(m.name || "").trim() || "";
-            const secondary = hebrewName && englishName ? englishName : "";
+            const nameLine = [hebrewName, englishName].filter(Boolean).join(" · ");
+            const fallbackName = String(m.name || "").trim();
+            const line1 = nameLine || fallbackName || "";
 
             const birthLine =
               birthDate || hebrewBirthDate
-                ? `<div style="margin-top:6px;"><bdi><b>לידה:</b></bdi> <bdi>${escapeHtml_(birthDate)}</bdi>${
-                    birthDate && hebrewBirthDate ? " " : ""
-                  }${hebrewBirthDate ? `(<bdi>${escapeHtml_(hebrewBirthDate)}</bdi>)` : ""}</div>`
+                ? `${escapeHtml_(birthDate)}${birthDate && hebrewBirthDate ? " " : ""}${
+                    hebrewBirthDate ? `(${escapeHtml_(hebrewBirthDate)})` : ""
+                  }`
                 : "";
 
             const deathLine =
               deathDate || deathHebrewDate
-                ? `<div style="margin-top:3px; color:#374151;"><bdi><b>פטירה:</b></bdi> <bdi>${escapeHtml_(deathDate)}</bdi>${
-                    deathDate && deathHebrewDate ? " " : ""
-                  }${deathHebrewDate ? `(<bdi>${escapeHtml_(deathHebrewDate)}</bdi>)` : ""}</div>`
+                ? `${escapeHtml_(deathDate)}${deathDate && deathHebrewDate ? " " : ""}${
+                    deathHebrewDate ? `(${escapeHtml_(deathHebrewDate)})` : ""
+                  }`
                 : "";
 
-            const commentLine = comment
-              ? `<div style="margin-top:6px; color:#374151; white-space:pre-wrap;"><bdi>${escapeHtml_(
-                  comment
-                )}</bdi></div>`
-              : "";
-
             return `
-              <div style="padding:10px 12px; direction: rtl; text-align: right; height:100%; box-sizing:border-box;">
-                <div style="text-align:center; font-size:15px; font-weight:750; color:#111;">
-                  <bdi>${escapeHtml_(primary)}</bdi>
-                </div>
+              <div style="
+                padding:7px;
+                direction: rtl;
+                text-align: right;
+                height:100%;
+                box-sizing:border-box;
+                line-height:1.2;
+                font-size:11px;
+                color:#111;
+              ">
+                <div style="
+                  font-weight:750;
+                  font-size:12px;
+                  text-align:center;
+                  white-space:nowrap;
+                  overflow:hidden;
+                  text-overflow:ellipsis;
+                " title="${escapeHtml_(line1)}"><bdi>${escapeHtml_(line1)}</bdi></div>
+
                 ${
-                  secondary
-                    ? `<div style="text-align:center; font-size:12px; margin-top:2px; color:#6b7280;"><bdi>${escapeHtml_(
-                        secondary
-                      )}</bdi></div>`
+                  comment
+                    ? `<div style="
+                        margin-top:3px;
+                        color:#374151;
+                        white-space:nowrap;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                      " title="${escapeHtml_(comment)}"><bdi>${escapeHtml_(comment)}</bdi></div>`
                     : ""
                 }
-                <div style="font-size:12px; margin-top:6px; color:#111; line-height:1.35;">
-                  ${birthLine}
-                  ${deathLine}
-                  ${commentLine}
-                </div>
+
+                ${
+                  birthLine
+                    ? `<div style="
+                        margin-top:3px;
+                        white-space:nowrap;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                      " title="${birthLine}"><bdi>${birthLine}</bdi></div>`
+                    : ""
+                }
+
+                ${
+                  deathLine
+                    ? `<div style="
+                        margin-top:2px;
+                        color:#374151;
+                        white-space:nowrap;
+                        overflow:hidden;
+                        text-overflow:ellipsis;
+                      " title="${deathLine}"><bdi>${deathLine}</bdi></div>`
+                    : ""
+                }
               </div>
             `;
           };
